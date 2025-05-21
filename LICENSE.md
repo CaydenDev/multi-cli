@@ -12,8 +12,8 @@ THE FOLLOWING RESTRICTIONS APPLY:
 1. **No Commercial Use**
    You may not use the Software, in whole or in part, for any commercial purpose. Commercial purposes include but are not limited to using the Software in any business, product, or service intended for commercial advantage or monetary compensation.
 
-2. **No Private or Personal Use**
-   You may not use, run, execute, install, or deploy the Software for personal, academic, or internal purposes. The only exception to this is the original author or rights holder.
+2. **Private or Personal Use Permitted**
+   You may use, run, execute, install, or deploy the Software for private, academic, or personal purposes. This right does not extend to commercial use or redistribution.
 
 3. **No Modification or Derivative Works**
    You may not modify, translate, adapt, or create derivative works of the Software.
