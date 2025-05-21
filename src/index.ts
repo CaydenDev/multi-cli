@@ -3,6 +3,9 @@
 import { Command } from 'commander';
 import { apiTest } from './commands/apiTest';
 import { processMonitor } from './commands/processMonitor';
+import { redditBrowser } from './commands/redditBrowser';
+import { youtubeDownloader } from './commands/youtubeDownloader';
+import { newsReader } from './commands/newsReader';
 
 const program = new Command();
 
@@ -11,7 +14,11 @@ program
   .description('A user-friendly multi-purpose CLI tool')
   .version('1.0.0');
 
+// Register all commands
 apiTest(program);
 processMonitor(program);
+redditBrowser(program);
+youtubeDownloader(program);
+newsReader(program);
 
 program.parse(process.argv);
