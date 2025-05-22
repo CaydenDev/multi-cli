@@ -1,6 +1,6 @@
 {
   "name": "multi-cli",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "A user-friendly multi-purpose CLI tool",
   "main": "dist/index.js",
   "bin": {
@@ -25,10 +25,13 @@
     "axios": "^1.9.0",
     "chalk": "^4.1.2",
     "chalk-table": "^1.0.2",
+    "cheerio": "^1.0.0",
     "cli-table3": "^0.6.3",
     "commander": "^14.0.0",
     "inquirer": "^8.2.5",
+    "node-fetch": "^2.7.0",
     "opener": "^1.5.2",
+    "ping": "^0.4.4",
     "rss-parser": "^3.13.0",
     "simple-git": "^3.27.0",
     "snoowrap": "^1.23.0",
@@ -39,6 +42,8 @@
     "@types/commander": "^2.12.0",
     "@types/inquirer": "^9.0.8",
     "@types/node": "^22.15.21",
+    "@types/node-fetch": "^2.6.12",
+    "@types/ping": "^0.4.4",
     "ts-node": "^10.9.2",
     "typescript": "^5.8.3"
   }
