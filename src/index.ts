@@ -6,6 +6,7 @@ import { processMonitor } from './commands/processMonitor';
 import { redditBrowser } from './commands/redditBrowser';
 import { youtubeDownloader } from './commands/youtubeDownloader';
 import { newsReader } from './commands/newsReader';
+import { gitControl } from './commands/gitControl';
 
 const program = new Command();
 
@@ -20,5 +21,6 @@ processMonitor(program);
 redditBrowser(program);
 youtubeDownloader(program);
 newsReader(program);
+gitControl(program);
 
 program.parse(process.argv);
