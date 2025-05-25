@@ -20,7 +20,7 @@ const program = new Command();
 program
   .name('mcli')
   .description('A user-friendly multi-purpose CLI tool')
-  .version('MCLI 1.1.0');
+  .version('MCLI 1.1.2');
 
 // Register all commands
 apiTest(program);
