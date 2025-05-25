@@ -13,6 +13,8 @@ import { fuzzyFinder } from './commands/fuzzyFinder';
 import { directoryNavigator } from './commands/directoryNavigator';
 import { internetSpeedTest } from './commands/speedTest';
 
+import { chatbot } from './commands/chatbot';
+
 const program = new Command();
 
 program
@@ -32,5 +34,6 @@ websiteMonitor(program);
 fuzzyFinder(program);
 directoryNavigator(program);
 internetSpeedTest(program);
+chatbot(program);
 
 program.parse(process.argv);
