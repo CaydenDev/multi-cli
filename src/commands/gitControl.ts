@@ -12,6 +12,11 @@ interface GitStatus {
     untracked: string[];
 }
 
+interface GitRemote {
+    name: string;
+    url: string;
+}
+
 async function executeGit(command: string): Promise<string> {
     try {
         const { stdout } = await execAsync(`git ${command}`);
@@ -56,19 +61,43 @@ async function getGitStatus(): Promise<GitStatus> {
     }
 }
 
-async function getBranches(): Promise<{ current: string; all: string[] }> {
+async function getBranches(): Promise<{ current: string; all: string[]; remotes: string[] }> {
     try {
-        const output = await executeGit('branch');
+        const output = await executeGit('branch -a');
         const branches = output.split('\n')
             .map(b => b.trim())
             .filter(Boolean);
 
         const current = branches.find(b => b.startsWith('*'))?.slice(2) || '';
-        const all = branches.map(b => b.startsWith('*') ? b.slice(2) : b);
+        const remotes = branches
+            .filter(b => b.startsWith('remotes/'))
+            .map(b => b.slice(8));
+        const locals = branches
+            .filter(b => !b.startsWith('remotes/'))
+            .map(b => b.startsWith('*') ? b.slice(2) : b);
 
-        return { current, all };
+        return { current, all: locals, remotes };
     } catch (error) {
         throw new Error('Failed to get branches');
+    }
+}
+
+async function getRemotes(): Promise<GitRemote[]> {
+    try {
+        const output = await executeGit('remote -v');
+        const lines = output.split('\n').filter(Boolean);
+        const remotes: GitRemote[] = [];
+
+        lines.forEach(line => {
+            const [name, url] = line.split('\t');
+            if (!remotes.find(r => r.name === name)) {
+                remotes.push({ name, url: url.split(' ')[0] });
+            }
+        });
+
+        return remotes;
+    } catch (error) {
+        throw new Error('Failed to get remotes');
     }
 }
 
@@ -103,9 +132,11 @@ export function gitControl(program: Command) {
                             choices: [
                                 { name: 'View Status', value: 'status' },
                                 { name: 'Branch Operations', value: 'branch' },
+                                { name: 'Remote Operations', value: 'remote' },
                                 { name: 'Stage Changes', value: 'add' },
                                 { name: 'Commit Changes', value: 'commit' },
-                                { name: 'Push/Pull Changes', value: 'sync' }
+                                { name: 'Push/Pull Changes', value: 'sync' },
+                                { name: 'Advanced Operations', value: 'advanced' }
                             ]
                         }
                     ]);
@@ -137,26 +168,30 @@ export function gitControl(program: Command) {
                                     choices: [
                                         { name: 'List branches', value: 'list' },
                                         { name: 'Create new branch', value: 'create' },
-                                        { name: 'Switch branch', value: 'switch' }
+                                        { name: 'Switch branch', value: 'switch' },
+                                        { name: 'Delete branch', value: 'delete' },
+                                        { name: 'Set upstream', value: 'upstream' }
                                     ]
                                 }
                             ]);
 
-                            const { current, all } = await getBranches();
+                            const { current, all, remotes } = await getBranches();
 
                             if (operation === 'list') {
                                 console.log(chalk.bold('\nCurrent branch:'), chalk.green(current));
-                                console.log(chalk.bold('\nAll branches:'));
+                                console.log(chalk.bold('\nLocal branches:'));
                                 all.forEach(branch => {
                                     console.log(`  ${branch === current ? chalk.green('*') : ' '} ${branch}`);
                                 });
+                                console.log(chalk.bold('\nRemote branches:'));
+                                remotes.forEach(branch => console.log(`  ${branch}`));
                             } else if (operation === 'create') {
                                 const { name } = await inquirer.prompt([
                                     {
                                         type: 'input',
                                         name: 'name',
                                         message: 'New branch name:',
-                                        validate: input => !!input || 'Branch name is required'
+                                        validate: (input: string) => !!input || 'Branch name is required'
                                     }
                                 ]);
                                 await executeGit(`checkout -b ${name}`);
@@ -172,6 +207,81 @@ export function gitControl(program: Command) {
                                 ]);
                                 await executeGit(`checkout ${branch}`);
                                 console.log(chalk.green(`Switched to branch '${branch}'`));
+                            } else if (operation === 'delete') {
+                                const { branch } = await inquirer.prompt([
+                                    {
+                                        type: 'list',
+                                        name: 'branch',
+                                        message: 'Select branch to delete:',
+                                        choices: all.filter(b => b !== current)
+                                    }
+                                ]);
+                                await executeGit(`branch -d ${branch}`);
+                                console.log(chalk.green(`Deleted branch '${branch}'`));
+                            } else if (operation === 'upstream') {
+                                const remotes = await getRemotes();
+                                const { remote } = await inquirer.prompt([
+                                    {
+                                        type: 'list',
+                                        name: 'remote',
+                                        message: 'Select remote:',
+                                        choices: remotes.map(r => r.name)
+                                    }
+                                ]);
+                                await executeGit(`branch --set-upstream-to=${remote}/${current} ${current}`);
+                                console.log(chalk.green(`Set upstream for '${current}' to '${remote}/${current}'`));
+                            }
+                            break;
+                        }
+                        case 'remote': {
+                            const { operation } = await inquirer.prompt([
+                                {
+                                    type: 'list',
+                                    name: 'operation',
+                                    message: 'Remote operation:',
+                                    choices: [
+                                        { name: 'List remotes', value: 'list' },
+                                        { name: 'Add remote', value: 'add' },
+                                        { name: 'Remove remote', value: 'remove' }
+                                    ]
+                                }
+                            ]);
+
+                            if (operation === 'list') {
+                                const remotes = await getRemotes();
+                                console.log(chalk.bold('\nRemotes:'));
+                                remotes.forEach(remote => {
+                                    console.log(`  ${chalk.green(remote.name)}: ${remote.url}`);
+                                });
+                            } else if (operation === 'add') {
+                                const { name, url } = await inquirer.prompt([
+                                    {
+                                        type: 'input',
+                                        name: 'name',
+                                        message: 'Remote name:',
+                                        validate: (input: string) => !!input || 'Remote name is required'
+                                    },
+                                    {
+                                        type: 'input',
+                                        name: 'url',
+                                        message: 'Remote URL:',
+                                        validate: (input: string) => !!input || 'Remote URL is required'
+                                    }
+                                ]);
+                                await executeGit(`remote add ${name} ${url}`);
+                                console.log(chalk.green(`Added remote '${name}'`));
+                            } else if (operation === 'remove') {
+                                const remotes = await getRemotes();
+                                const { name } = await inquirer.prompt([
+                                    {
+                                        type: 'list',
+                                        name: 'name',
+                                        message: 'Select remote to remove:',
+                                        choices: remotes.map(r => r.name)
+                                    }
+                                ]);
+                                await executeGit(`remote remove ${name}`);
+                                console.log(chalk.green(`Removed remote '${name}'`));
                             }
                             break;
                         }
@@ -207,9 +317,10 @@ export function gitControl(program: Command) {
                                     type: 'input',
                                     name: 'message',
                                     message: 'Commit message:',
-                                    validate: input => !!input || 'Commit message is required'
+                                    validate: (input: string) => !!input || 'Commit message is required'
                                 }
                             ]);
+
                             await executeGit(`commit -m "${message}"`);
                             console.log(chalk.green('Changes committed successfully'));
                             break;
@@ -221,8 +332,9 @@ export function gitControl(program: Command) {
                                     name: 'operation',
                                     message: 'Select operation:',
                                     choices: [
-                                        { name: 'Push changes', value: 'push' },
-                                        { name: 'Pull changes', value: 'pull' }
+                                        { name: 'Push', value: 'push' },
+                                        { name: 'Pull', value: 'pull' },
+                                        { name: 'Fetch', value: 'fetch' }
                                     ]
                                 }
                             ]);
@@ -230,9 +342,60 @@ export function gitControl(program: Command) {
                             if (operation === 'push') {
                                 await executeGit('push');
                                 console.log(chalk.green('Changes pushed successfully'));
-                            } else {
+                            } else if (operation === 'pull') {
                                 await executeGit('pull');
                                 console.log(chalk.green('Changes pulled successfully'));
+                            } else if (operation === 'fetch') {
+                                await executeGit('fetch --all');
+                                console.log(chalk.green('Fetched all remotes successfully'));
+                            }
+                            break;
+                        }
+                        case 'advanced': {
+                            const { operation } = await inquirer.prompt([
+                                {
+                                    type: 'list',
+                                    name: 'operation',
+                                    message: 'Select operation:',
+                                    choices: [
+                                        { name: 'Merge branch', value: 'merge' },
+                                        { name: 'Rebase branch', value: 'rebase' },
+                                        { name: 'Stash changes', value: 'stash' },
+                                        { name: 'Pop stashed changes', value: 'stash-pop' }
+                                    ]
+                                }
+                            ]);
+
+                            if (operation === 'merge') {
+                                const { all } = await getBranches();
+                                const { branch } = await inquirer.prompt([
+                                    {
+                                        type: 'list',
+                                        name: 'branch',
+                                        message: 'Select branch to merge:',
+                                        choices: all
+                                    }
+                                ]);
+                                await executeGit(`merge ${branch}`);
+                                console.log(chalk.green(`Merged branch '${branch}' successfully`));
+                            } else if (operation === 'rebase') {
+                                const { all } = await getBranches();
+                                const { branch } = await inquirer.prompt([
+                                    {
+                                        type: 'list',
+                                        name: 'branch',
+                                        message: 'Select branch to rebase onto:',
+                                        choices: all
+                                    }
+                                ]);
+                                await executeGit(`rebase ${branch}`);
+                                console.log(chalk.green(`Rebased onto '${branch}' successfully`));
+                            } else if (operation === 'stash') {
+                                await executeGit('stash');
+                                console.log(chalk.green('Changes stashed successfully'));
+                            } else if (operation === 'stash-pop') {
+                                await executeGit('stash pop');
+                                console.log(chalk.green('Popped stashed changes successfully'));
                             }
                             break;
                         }
@@ -256,12 +419,14 @@ export function gitControl(program: Command) {
                     }
 
                     if (options.branch) {
-                        const { current, all } = await getBranches();
+                        const { current, all, remotes } = await getBranches();
                         console.log(chalk.bold('\nCurrent branch:'), chalk.green(current));
-                        console.log(chalk.bold('\nAll branches:'));
+                        console.log(chalk.bold('\nLocal branches:'));
                         all.forEach(branch => {
                             console.log(`  ${branch === current ? chalk.green('*') : ' '} ${branch}`);
                         });
+                        console.log(chalk.bold('\nRemote branches:'));
+                        remotes.forEach(branch => console.log(`  ${branch}`));
                     }
 
                     if (options.checkout) {
@@ -295,7 +460,7 @@ export function gitControl(program: Command) {
                     }
                 }
             } catch (error: any) {
-                console.error(chalk.red('Error:'), error.message);
+                console.error(chalk.red(`Error: ${error.message}`));
             }
         });
 }
